@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Picarrange",
+    "slug": "picarrange",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+						"foregroundImage": "./assets/adaptive-icon.png",
+						"backgroundColor": "#ffffff"
+					  }
+      "minSdkVersion": 31,  // Android 12 (API level 31)
+      "targetSdkVersion": 33,  // Android 13 (API level 33)
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA"
+      ]
+    }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "description": "Manage you Notation images offline to search and play anywhere anytime"
+  }
+}

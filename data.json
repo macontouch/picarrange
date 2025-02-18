@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Mountain Sunrise",
+    "description": "A breathtaking view of the sun rising over the mountains.",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "t_image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "category": "E",
+    "liked": 0
+  },
+  {
+    "name": "Cityscape at Night",
+    "description": "The city skyline illuminated by thousands of lights.",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "t_image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "category": "E",
+    "liked": 0
+  },
+  {
+    "name": "Autumn Forest",
+    "description": "A serene forest path covered in autumn leaves.",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "t_image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "category": "E",
+    "liked": 0
+  },
+  {
+    "name": "Tropical Beach",
+    "description": "A beautiful beach with crystal clear water and white sand.",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "t_image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "category": "E",
+    "liked": 0
+  }
+]
