@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, Alert,ImageBackground } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
+import CustomAlert from './dataHelper';
 
 const DetailPage = ({ route, navigation }) => {
   const { item } = route.params;
@@ -14,6 +15,14 @@ const DetailPage = ({ route, navigation }) => {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const [menuVisible, setMenuVisible] = useState(false);
+
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [onConfirmAction, setOnConfirmAction] = useState(null);
+  const [showCancelButton, setShowCancelButton] = useState(false);
+
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,6 +34,14 @@ const DetailPage = ({ route, navigation }) => {
     };
     fetchData();
   }, []);
+
+  const showCustomAlert = (title, message, onConfirm) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setOnConfirmAction(() => onConfirm);
+    setShowCancelButton(false);
+    setAlertVisible(true);
+  };
 
   const shareImage = async () => {
     try {
@@ -39,19 +56,18 @@ const DetailPage = ({ route, navigation }) => {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri);
       } else {
-        Alert.alert('Error', 'Sharing is not available on this device');
+        showCustomAlert('Error', 'Sharing is not available on this device', () => {
+              setAlertVisible(false);
+            });
       }
     } catch (error) {
-      console.error('Error sharing image:', error);
-      Alert.alert('Error', `An error occurred while sharing the image: ${error.message}`);
+      showCustomAlert('Error', 'An error occurred while sharing the image: ${error.message}', () => {
+              setAlertVisible(false);
+            });
     }
   };
 
-  const saveToDrive = async () => {
-    // Implement the save to Google Drive functionality here
-    const timestamp = new Date().getTime();
-    Alert.alert('Time Stamp', `Current time stamp: ${timestamp}`);
-  };
+  
 
   const downloadImage = async () => {
     try {
@@ -75,10 +91,16 @@ const DetailPage = ({ route, navigation }) => {
 
       // Save the file to the media library
       await MediaLibrary.saveToLibraryAsync(fileUri);
-      Alert.alert('Downloaded', 'Image downloaded successfully!');
+      showCustomAlert('Downloaded', 'The Item is downloaded successfully!', () => {
+              setAlertVisible(false);
+            });
+
     } catch (error) {
-      console.error('Error downloading image:', error);
-      Alert.alert('Error', `An error occurred while downloading the image: ${error.message}`);
+      
+      showCustomAlert('Error', 'An error occurred while downloading the image: ${error.message}', () => {
+              setAlertVisible(false);
+            });
+
     }
   };
 
@@ -147,37 +169,49 @@ const DetailPage = ({ route, navigation }) => {
       });
       await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(updatedData));
       setLikes(likes => Math.max(likes + increment, 0)); // Update local state
-      Alert.alert(increment > 0 ? 'Moved Up' : 'OOps..', `${increment > 0 ? 'Thank you that you have rate it up' : 'Sorry that you have rate it down'}!`);
+showCustomAlert(increment > 0 ? 'Moved Up' : 'OOps..', `${increment > 0 ? 'Thank you that you have rate it up' : 'Sorry that you have rate it down'}!`, () => {
+              setAlertVisible(false);
+            });
+
     } catch (error) {
       console.error('Error updating like:', error);
-      Alert.alert('Error', `An error occurred while ${increment > 0 ? 'liking' : 'disliking'} the song.`);
+      showCustomAlert('Error', `An error occurred while rating the item.`, () => {
+              setAlertVisible(false);
+            });
+
+
     }
   };
 
   const confirmDelete = () => {
-    Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this song?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', onPress: deleteSong },
-      ],
-      { cancelable: false }
-    );
+    showCustomAlert('Confirm Delete', 'Are you sure you want to delete this item?', () =>   {
+              setAlertVisible(false);
+              deleteItem();
+
+            });
+    setShowCancelButton(true);
+
   };
 
-  const deleteSong = async () => {
+  const deleteItem = async () => {
     try {
       const fileUri = FileSystem.documentDirectory + 'data.json';
       const fileContent = await FileSystem.readAsStringAsync(fileUri);
       const existingData = fileContent ? JSON.parse(fileContent) : [];
       const updatedData = existingData.filter(song => song.name !== item.name);
       await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(updatedData));
-      Alert.alert('Deleted', 'Song deleted successfully!');
+      showCustomAlert('Deleted', 'The item is deleted successfully!', () => {
+              setAlertVisible(false);
+            });
+
+
       navigation.navigate('Home');
     } catch (error) {
       console.error('Error deleting song:', error);
-      Alert.alert('Error', 'An error occurred while deleting the song.');
+      showCustomAlert('Error', 'An error occurred while deleting the item.', () => {
+              setAlertVisible(false);
+            });
+
     }
   };
 
@@ -192,6 +226,10 @@ const DetailPage = ({ route, navigation }) => {
   };
 
   return (
+    <ImageBackground
+      source={require('./assets/bg.png')}
+      style={styles.background}
+    >
     <View style={styles.container}>
     
       <GestureDetector gesture={Gesture.Simultaneous(pinchGesture, panGesture, doubleTapGesture)}>
@@ -199,7 +237,7 @@ const DetailPage = ({ route, navigation }) => {
         <Animated.View style={[styles.imageContainer, animatedStyle]}>
         
           <Image 
-            source={item.image ? { uri: item.image } : require('./assets/logo.jpg')} 
+            source={item.image ? { uri: item.image } : require('./assets/logo.png')} 
             style={styles.image} 
             onError={() => console.error('Error loading image.')}
           />
@@ -237,7 +275,7 @@ const DetailPage = ({ route, navigation }) => {
         </View>
       </View>
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('List', { category: 'A' })}>
+        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('List', { category: '0' })}>
           <MaterialIcons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconButton} onPress={() => updateLike(1)}>
@@ -254,10 +292,23 @@ const DetailPage = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
     </View>
+    <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onConfirm={onConfirmAction}
+        onCancel={() => setAlertVisible(false)}
+        showCancelButton={showCancelButton}
+      />
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',

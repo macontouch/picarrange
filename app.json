@@ -16,22 +16,35 @@
       "supportsTablet": true
     },
     "android": {
+      "config": {
+        "googleMobileAdsAppId": "ca-app-pub-5705659618300152~3727789761"
+      },
       "adaptiveIcon": {
-						"foregroundImage": "./assets/adaptive-icon.png",
-						"backgroundColor": "#ffffff"
-					  }
-      "minSdkVersion": 31,  // Android 12 (API level 31)
-      "targetSdkVersion": 33,  // Android 13 (API level 33)
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "minSdkVersion": 31,
+      "targetSdkVersion": 33,
       "permissions": [
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "CAMERA"
-      ]
-    }
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.MANAGE_DOCUMENTS",
+        "android.permission.EAD_PHONE_STATE"
+      ],
+      "package": "com.macontouch.picarrange"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "description": "Manage you Notation images offline to search and play anywhere anytime"
+    "react-native-google-mobile-ads": {
+      "android_app_id": "ca-app-pub-5705659618300152~3727789761"
+    },
+    "description": "Manage your Notation images offline to search and play anywhere anytime",
+    "extra": {
+      "eas": {
+        "projectId": "5d91cabb-7473-4420-9adb-197fb08c5a0e"
+      }
+    }
   }
 }

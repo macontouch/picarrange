@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 import { Alert } from 'react-native';
+import { View, Image, StyleSheet, TouchableOpacity, ImageBackground, Animated, Text } from 'react-native';
 
 // Function to generate a unique URL to bypass caching
 const getUniqueUrl = (url) => `${url}?timestamp=${new Date().getTime()}`;
@@ -96,3 +97,93 @@ export const checkForUpdates = async () => {
     return null;
   }
 };
+
+'react-native';
+
+const CustomAlert = ({ visible, title, message, onConfirm, onCancel, showCancelButton }) => {
+  if (!visible) return null;
+
+  return (
+    <View style={styles.overlay}>
+      <ImageBackground source={require('./assets/bg_small.png')} style={styles.alertContainer}>
+        <Text style={styles.alertTitle}>{title}</Text>
+        <Text style={styles.alertMessage}>{message}</Text>
+        <View style={styles.buttonContainer}>
+          {showCancelButton && (
+            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.confirmButton} onPress={onConfirm}>
+            <Text style={styles.confirmButtonText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </ImageBackground>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  alertContainer: {
+    width: 258,
+    height: 163,
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    top : -10,
+    marginBottom: 7,
+    color: 'rgba(33, 99, 125, 1)',
+  },
+  alertMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: 'rgba(33, 99, 125, 1)',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(237, 111, 85, 1)',
+    padding: 10,
+    borderRadius: 5,
+    marginRight: 10,
+    width: 70,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  confirmButton: {
+    backgroundColor: 'rgba(33, 99, 125, 1)',
+    padding: 10,
+    borderRadius: 5,
+    marginRight: 10,
+    width: 70,
+    alignItems: 'center',
+   
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+});
+
+export default CustomAlert;

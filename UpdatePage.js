@@ -1,34 +1,76 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, Text, ActivityIndicator, Modal, Alert, TouchableOpacity, ImageBackground, Image } from 'react-native';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  Text,
+  ActivityIndicator,
+  Modal,
+  Alert,
+  TouchableOpacity,
+  ImageBackground,
+  Image,
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import RNPickerSelect from 'react-native-picker-select';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import CustomAlert from './dataHelper';
 
 const UpdatePage = ({ navigation, route }) => {
   const { item } = route.params || {}; // Get the item from route params if available
   const [name, setName] = useState(item ? item.name : '');
   const [description, setDescription] = useState(item ? item.description : '');
-  const [category, setCategory] = useState(item ? item.category : 'B');
-  const [imageBase64, setImageBase64] = useState(item ? item.image.split(',')[1] : '');
-  const [thumbnailBase64, setThumbnailBase64] = useState(item ? item.t_image.split(',')[1] : '');
+  const [category, setCategory] = useState(item ? item.category : '');
+  const [categories, setCategories] = useState([]); // State for categories
+  const [imageBase64, setImageBase64] = useState(
+    item ? item.image.split(',')[1] : ''
+  );
+  const [thumbnailBase64, setThumbnailBase64] = useState(
+    item ? item.t_image.split(',')[1] : ''
+  );
   const [loading, setLoading] = useState(false);
   const [newImageSelected, setNewImageSelected] = useState(false); // State to track if a new image is selected
 
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [onConfirmAction, setOnConfirmAction] = useState(null);
+
   useEffect(() => {
     const requestPermissions = async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        showCustomAlert(
           'Permissions needed',
-          'We need camera roll permissions to select images',
-          [{ text: 'OK' }]
+          'We need camera roll permissions to select images.',
+          () => {
+            setAlertVisible(false);
+          }
         );
       }
     };
 
+    const loadCategories = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem('categories');
+        const storedCategories = jsonValue != null ? JSON.parse(jsonValue) : [];
+        const categoryOptions = storedCategories.map((cat) => ({
+          label: cat.category,
+          value: cat.denotedby,
+        }));
+        setCategories(categoryOptions);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    };
+
     requestPermissions();
+    loadCategories();
   }, []);
 
   const checkForDuplicateName = async (newName, originalName = null) => {
@@ -38,7 +80,7 @@ const UpdatePage = ({ navigation, route }) => {
       const existingData = fileContent ? JSON.parse(fileContent) : [];
 
       // Check for duplicate name
-      const duplicateItem = existingData.find(item => item.name === newName);
+      const duplicateItem = existingData.find((item) => item.name === newName);
 
       if (duplicateItem && newName !== originalName) {
         throw new Error('An item with this name already exists.');
@@ -46,7 +88,6 @@ const UpdatePage = ({ navigation, route }) => {
 
       return true; // Valid name
     } catch (error) {
-      Alert.alert('Validation Error', error.message);
       return false; // Invalid name
     }
   };
@@ -80,48 +121,98 @@ const UpdatePage = ({ navigation, route }) => {
       setLoading(false); // Hide loading
     } catch (error) {
       setLoading(false); // Hide loading in case of error
-      Alert.alert('Error', 'An error occurred while picking the image.');
+      showCustomAlert(
+        'Error',
+        'An error occurred while picking the image.',
+        () => {
+          setAlertVisible(false);
+        }
+      );
     }
   };
 
-  const saveData = async () => {
+  const pickImageFromLibrary = async () => {
     try {
-      const isValidName = await checkForDuplicateName(name);
+      setLoading(true); // Show loading
 
-      if (!isValidName) return;
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+        base64: true,
+      });
 
-      const fileUri = FileSystem.documentDirectory + 'data.json';
-      const newEntry = {
-        name,
-        description,
-        image: `data:image/png;base64,${imageBase64}`,
-        t_image: `data:image/png;base64,${thumbnailBase64}`,
-        category,
-        liked: 0
-      };
+      if (!result.canceled) {
+        if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
+          const uri = result.assets[0].uri;
+          setImageBase64(result.assets[0].base64);
 
-      // Check if the file exists
-      let existingData = [];
-      try {
-        const fileInfo = await FileSystem.getInfoAsync(fileUri);
-        if (fileInfo.exists) {
-          const fileContent = await FileSystem.readAsStringAsync(fileUri);
-          existingData = fileContent ? JSON.parse(fileContent) : [];
+          const manipResult = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 50, height: 50 } }],
+            { base64: true }
+          );
+          setThumbnailBase64(manipResult.base64);
+          setNewImageSelected(true); // Set the flag to true if a new image is selected
         }
-      } catch (error) {
-        console.error('Error reading file:', error);
       }
 
-      // Add the new entry to the existing data
-      existingData.push(newEntry);
-
-      // Write the updated data to the file
-      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(existingData));
-      Alert.alert('Saved', 'Data saved successfully.');
-      navigation.navigate('Home');
+      setLoading(false); // Hide loading
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while saving the data.' + error);
+      setLoading(false); // Hide loading in case of error
+      showCustomAlert(
+        'Error',
+        'An error occurred while picking the image.',
+        () => {
+          setAlertVisible(false);
+        }
+      );
     }
+  };
+
+  const captureImageWithCamera = async () => {
+    try {
+      setLoading(true); // Show loading
+
+      let result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 1,
+        base64: true,
+      });
+
+      if (!result.canceled) {
+        if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
+          const uri = result.assets[0].uri;
+          setImageBase64(result.assets[0].base64);
+
+          const manipResult = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 50, height: 50 } }],
+            { base64: true }
+          );
+          setThumbnailBase64(manipResult.base64);
+          setNewImageSelected(true); // Set the flag to true if a new image is selected
+        }
+      }
+
+      setLoading(false); // Hide loading
+    } catch (error) {
+      setLoading(false); // Hide loading in case of error
+      showCustomAlert(
+        'Error',
+        'An error occurred while capturing the photo.',
+        () => {
+          setAlertVisible(false);
+        }
+      );
+    }
+  };
+
+  const showCustomAlert = (title, message, onConfirm) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setOnConfirmAction(() => onConfirm);
+    setAlertVisible(true);
   };
 
   const updateData = async () => {
@@ -161,77 +252,111 @@ const UpdatePage = ({ navigation, route }) => {
         console.error('Error reading file:', error);
       }
 
-      existingData = existingData.map(song =>
-        song.name === item.name && song.description === item.description ? updatedEntry : song
+      existingData = existingData.map((song) =>
+        song.name === item.name && song.description === item.description
+          ? updatedEntry
+          : song
       ); // Update existing entry
 
-      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(existingData));
-      Alert.alert('Updated', 'Data updated successfully.');
-      navigation.navigate('Home');
+      await FileSystem.writeAsStringAsync(
+        fileUri,
+        JSON.stringify(existingData)
+      );
+      showCustomAlert('Updated', 'Item updated successfully.', () => {
+        navigation.navigate('Home');
+        setAlertVisible(false);
+      });
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while saving the data.');
+      showCustomAlert(
+        'Error',
+        'An error occurred while saving the data.',
+        () => {
+          setAlertVisible(false);
+        }
+      );
     }
   };
 
   return (
     <ImageBackground
       source={require('./assets/bg.png')}
-      style={styles.background}
-    >
+      style={styles.background}>
       <View style={styles.container}>
         <RNPickerSelect
           placeholder={{}}
           onValueChange={(value) => setCategory(value)}
-          items={[
-            { label: 'Bengali', value: 'B' },
-            { label: 'Hindi', value: 'H' },
-            { label: 'English', value: 'E' },
-            { label: 'Others', value: 'O' },
-          ]}
+          items={categories}
           style={pickerSelectStyles}
           value={category}
         />
-        <TextInput 
-          placeholder="Name" 
-          value={name} 
-          onChangeText={setName} 
-          style={[styles.input, { backgroundColor: 'white' }]} 
+        <TextInput
+          placeholder="Name"
+          value={name}
+          onChangeText={setName}
+          style={[styles.input, { backgroundColor: 'white' }]}
         />
-        <TextInput 
-          placeholder="Description" 
-          value={description} 
-          onChangeText={setDescription} 
-          style={[styles.input, { backgroundColor: 'white' }]} 
+        <TextInput
+          placeholder="Description"
+          value={description}
+          onChangeText={setDescription}
+          style={[styles.input, { backgroundColor: 'white' }]}
         />
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.iconButton} onPress={pickImage}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={pickImageFromLibrary}>
             <MaterialIcons name="add-photo-alternate" size={24} color="white" />
-            <Text style={styles.buttonText}>Pick an Image</Text>
+            <Text style={styles.buttonText}>Photos</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.iconButton, (!imageBase64 || !thumbnailBase64 || !name || !description || !category) && styles.disabledButton]}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={captureImageWithCamera}>
+            <MaterialIcons name="camera-alt" size={24} color="white" />
+            <Text style={styles.buttonText}>Camera</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.iconButton,
+              (!imageBase64 ||
+                !thumbnailBase64 ||
+                !name ||
+                !description ||
+                !category) &&
+                styles.disabledButton,
+            ]}
             onPress={updateData}
-            disabled={!imageBase64 || !thumbnailBase64 || !name || !description || !category}
-          >
+            disabled={
+              !imageBase64 ||
+              !thumbnailBase64 ||
+              !name ||
+              !description ||
+              !category
+            }>
             <MaterialIcons name="save" size={24} color="white" />
             <Text style={styles.buttonText}>Save</Text>
           </TouchableOpacity>
         </View>
 
-        
-
-             <Image 
-          source={newImageSelected ? { uri: `data:image/png;base64,${imageBase64}` } : { uri: item.image }} // Update this line
-          style={styles.image} 
+        <Image
+          source={
+            newImageSelected
+              ? { uri: `data:image/png;base64,${imageBase64}` }
+              : { uri: item.image }
+          }
+          style={styles.image}
           onError={() => console.error('Error loading image.')}
         />
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('List')}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('List')}>
             <MaterialIcons name="list" size={24} color="white" />
             <Text style={styles.buttonText}>Go to List Page</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Home')}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Home')}>
             <MaterialIcons name="home" size={24} color="white" />
             <Text style={styles.buttonText}>Go to Home</Text>
           </TouchableOpacity>
@@ -242,8 +367,7 @@ const UpdatePage = ({ navigation, route }) => {
           transparent={true}
           animationType="none"
           visible={loading}
-          onRequestClose={() => setLoading(false)}
-        >
+          onRequestClose={() => setLoading(false)}>
           <View style={styles.modalBackground}>
             <View style={styles.activityIndicatorWrapper}>
               <ActivityIndicator size="large" color="#0000ff" />
@@ -252,6 +376,15 @@ const UpdatePage = ({ navigation, route }) => {
           </View>
         </Modal>
       </View>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onConfirm={onConfirmAction}
+        onCancel={() => setAlertVisible(false)}
+        showCancelButton={false}
+      />
     </ImageBackground>
   );
 };
@@ -322,11 +455,11 @@ const styles = StyleSheet.create({
   },
   image: {
     alignItems: 'center',
-      width: 350, // Make the image as wide as the screen
-      height: 350,
-      resizeMode: 'contain',
-      marginBottom: 20,
-    },
+    width: 350, // Make the image as wide as the screen
+    height: 350,
+    resizeMode: 'contain',
+    marginBottom: 20,
+  },
 });
 
 const pickerSelectStyles = StyleSheet.create({

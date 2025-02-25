@@ -1,0 +1,38 @@
+ca-app-pub-5705659618300152~3727789761
+ca-app-pub-5705659618300152/5867740083
+
+https://docs.page/invertase/react-native-google-mobile-ads/displaying-ads#banner-ads-component
+
+
+"react-native-google-mobile-ads": "^14.9.0",
+
+"react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-5705659618300152~3727789761"
+    }
+
+	
+npx create-expo-app --template
+npm i react-native-google-mobile-ads
+
+code .
+
+npm uninstall -g expo-cli
+add dependencies - 
+-------------------
+"dependencies": {
+        "expo": "~52.0.37",
+        "expo-dev-client": "~5.0.12",
+        "expo-status-bar": "~2.0.1",
+        "react": "18.3.1",
+        "react-native": "0.76.7",
+        "react-native-google-mobile-ads": "^14.9.0"
+      },
+--------------------
+npm install
+
+set NODE_TLS_REJECT_UNAUTHORIZED=0
+npx expo install expo-dev-client
+npm install -g eas-cli
+eas login (macontouch/Rw1kth##)
+eas build --profile development --platform android 
+npx expo start --dev-client

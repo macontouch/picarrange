@@ -20,13 +20,28 @@ import {
   MenuTrigger,
   MenuProvider,
 } from 'react-native-popup-menu';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+import CustomAlert from './dataHelper'; // Ensure your custom alert component is imported
+
+import { BannerAd, BannerAdSize, TestIds, useForeground } from 'react-native-google-mobile-ads';
+
+
+
 
 const ListPage = ({ route, navigation }) => {
   const { category: initialCategory } = route.params || {};
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('A');
+  const [selectedCategory, setSelectedCategory] = useState('0'); // Default to 'All'
+  const [categories, setCategories] = useState([]); // State for categories
   const [data, setData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [onConfirmAction, setOnConfirmAction] = useState(null);
+
+  const adUnitId = __DEV__ ? 'ca-app-pub-5705659618300152/5867740083' : 'ca-app-pub-5705659618300152/5867740083';
 
   useEffect(() => {
     if (initialCategory !== undefined) {
@@ -42,63 +57,53 @@ const ListPage = ({ route, navigation }) => {
           const savedData = await FileSystem.readAsStringAsync(fileUri);
           const parsedData = savedData ? JSON.parse(savedData) : [];
           setData(parsedData);
+
+          if (parsedData.length === 0) {
+            showCustomAlert('Oops...', 'No Item found. You need to create an item first.', () => {
+              navigation.navigate('Upload');
+              setAlertVisible(false);
+            });
+          }
         } else {
-          Alert.alert('Error', 'data.json file does not exist.');
+          showCustomAlert('Oops...', 'No Item found. You need to create an item first.', () => {
+            navigation.navigate('Upload');
+            setAlertVisible(false);
+          });
         }
       } catch (error) {
         console.error('Error loading data:', error);
       }
     };
 
+    const loadCategories = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem('categories');
+        const storedCategories = jsonValue != null ? JSON.parse(jsonValue) : [];
+        const categoryOptions = [{ label: 'All', value: '0' }, ...storedCategories.map(cat => ({ label: cat.category, value: cat.denotedby }))];
+        setCategories(categoryOptions);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    };
+
     loadData();
+    loadCategories();
+    
   }, [initialCategory]);
 
-
-
-
-useEffect(() => {
-  if (initialCategory !== undefined) {
-    setSelectedCategory(initialCategory);
-  }
-
   
-
-  const loadData = async () => {
-    try {
-      const fileUri = FileSystem.documentDirectory + 'data.json';
-      const fileInfo = await FileSystem.getInfoAsync(fileUri);
-      if (fileInfo.exists) {
-        const savedData = await FileSystem.readAsStringAsync(fileUri);
-        const parsedData = savedData ? JSON.parse(savedData) : [];
-        setData(parsedData);
-      } else {
-        Alert.alert('Error', 'data.json file does not exist.');
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
-  };
-
-  loadData();
-}, [initialCategory]);
-
-useEffect(() => {
-  console.log('Data:', data); // Debug log
-}, [data]);
-
-  const categories = [
-    { label: 'All', value: 'A' },
-    { label: 'Bengali', value: 'B' },
-    { label: 'Hindi', value: 'H' },
-    { label: 'English', value: 'E' },
-    { label: 'Others', value: 'O' },
-  ];
-
   useEffect(() => {
     if (initialCategory !== undefined) {
       setSelectedCategory(initialCategory);
     }
   }, [initialCategory]);
+
+  const showCustomAlert = (title, message, onConfirm) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setOnConfirmAction(() => onConfirm);
+    setAlertVisible(true);
+  };
 
   const getCategoryIcon = (category) => (
     <View style={styles.categoryIcon}>
@@ -136,7 +141,7 @@ useEffect(() => {
   const filteredData = data.filter(
     (item) =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      (selectedCategory === 'A' || item.category === selectedCategory)
+      (selectedCategory === '0' || item.category === selectedCategory)
   );
 
   return (
@@ -237,7 +242,17 @@ useEffect(() => {
             )}
           />
         </View>
+        <BannerAd style = {styles.banner} ref={bannerRef} unitId={adUnitId} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} />
+        
       </ImageBackground>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onConfirm={onConfirmAction}
+        onCancel={() => setAlertVisible(false)}
+        showCancelButton={false}
+      />
     </MenuProvider>
   );
 };
@@ -366,7 +381,11 @@ searchSelect: {
   flex: 1,
   width: '50%',
   marginRight:10,
-}
+},
+banner: {
+    position: 'absolute',
+    bottom: 0,
+  },
 });
 
 const pickerSelectStyles = StyleSheet.create({

@@ -1,18 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, StyleSheet, Text, ActivityIndicator, Modal, Alert, TouchableOpacity, ImageBackground,Image } from 'react-native';
+import { View, TextInput, StyleSheet, Text, ActivityIndicator, Modal, Alert, TouchableOpacity, ImageBackground, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import RNPickerSelect from 'react-native-picker-select';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import CustomAlert from './dataHelper';
+
 
 const UploadPage = ({ navigation }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('B');
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState([]); // State for categories
   const [imageBase64, setImageBase64] = useState('');
   const [thumbnailBase64, setThumbnailBase64] = useState('');
   const [loading, setLoading] = useState(false); // State for loading
+  const [newImageSelected, setNewImageSelected] = useState(false); // State to track if a new image is selected
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [onConfirmAction, setOnConfirmAction] = useState(null);
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -24,12 +33,32 @@ const UploadPage = ({ navigation }) => {
           [{ text: 'OK' }]
         );
       }
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (cameraStatus !== 'granted') {
+        Alert.alert(
+          'Permissions needed',
+          'We need camera permissions to capture images',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
+    const loadCategories = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem('categories');
+        const storedCategories = jsonValue != null ? JSON.parse(jsonValue) : [];
+        const categoryOptions = storedCategories.map(cat => ({ label: cat.category, value: cat.category }));
+        setCategories(categoryOptions);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
     };
 
     requestPermissions();
+    loadCategories();
   }, []);
 
-  const pickImage = async () => {
+  const pickImageFromLibrary = async () => {
     try {
       setLoading(true); // Show loading
 
@@ -40,14 +69,9 @@ const UploadPage = ({ navigation }) => {
         base64: true,
       });
 
-      console.log('Image Picker Result:', result);
-
       if (!result.canceled) {
         if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
           const uri = result.assets[0].uri;
-
-          console.log('Image URI:', uri);
-
           setImageBase64(result.assets[0].base64);
 
           const manipResult = await ImageManipulator.manipulateAsync(
@@ -55,82 +79,104 @@ const UploadPage = ({ navigation }) => {
             [{ resize: { width: 50, height: 50 } }],
             { base64: true }
           );
-
-          console.log('Manipulated Image Base64:', manipResult.base64);
           setThumbnailBase64(manipResult.base64);
-        } else {
-          console.error('Image URI is undefined.');
+          setNewImageSelected(true); // Set the flag to true if a new image is selected
         }
       }
 
       setLoading(false); // Hide loading
     } catch (error) {
       setLoading(false); // Hide loading in case of error
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'An error occurred while picking the image.');
+      showCustomAlert('Error', `An error occurred while picking the image: ${error.message}`, () => {
+        setAlertVisible(false);
+      });
     }
   };
 
-   const checkForDuplicateName = async () => {
+  const captureImageWithCamera = async () => {
     try {
-      const fileUri = FileSystem.documentDirectory + 'data.json';
-      const fileContent = await FileSystem.readAsStringAsync(fileUri);
-      const existingData = fileContent ? JSON.parse(fileContent) : [];
+      setLoading(true); // Show loading
 
-      
-      Alert.alert('info', existingData.some(item => item.name === name) );
-      return existingData.some(item => item.name === name);
+      let result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 1,
+        base64: true,
+      });
+
+      if (!result.canceled) {
+        if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
+          const uri = result.assets[0].uri;
+          setImageBase64(result.assets[0].base64);
+
+          const manipResult = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 50, height: 50 } }],
+            { base64: true }
+          );
+          setThumbnailBase64(manipResult.base64);
+          setNewImageSelected(true); // Set the flag to true if a new image is selected
+        }
+      }
+
+      setLoading(false); // Hide loading
     } catch (error) {
-        console.error('Error reading file:', error);
+      setLoading(false); // Hide loading in case of error
+      showCustomAlert('Error', `An error occurred while capturing the photo: ${error.message}`, () => {
+        setAlertVisible(false);
+      });
     }
-   };
+  };
 
   const saveData = async () => {
-  try {
-    const fileUri = FileSystem.documentDirectory + 'data.json';
-    let existingData = [];
-
     try {
-      const fileContent = await FileSystem.readAsStringAsync(fileUri);
-      existingData = fileContent ? JSON.parse(fileContent) : [];
+      const fileUri = FileSystem.documentDirectory + 'data.json';
+      let existingData = [];
+
+      try {
+        const fileContent = await FileSystem.readAsStringAsync(fileUri);
+        existingData = fileContent ? JSON.parse(fileContent) : [];
+      } catch (error) {
+        // If the file does not exist, we'll create it later
+        console.log('File not found, will create a new one.');
+      }
+
+      if (!existingData.some(item => item.name === name)) {
+        const newEntry = {
+          name,
+          description,
+          image: `data:image/png;base64,${imageBase64}`,
+          t_image: `data:image/png;base64,${thumbnailBase64}`,
+          category,
+          liked: 0
+        };
+
+        existingData.push(newEntry);
+
+        await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(existingData, null, 2));
+
+        Alert.alert('Success', 'Data saved successfully.');
+        setName('');
+        setDescription('');
+        setCategory('');
+        setImageBase64('');
+        setThumbnailBase64('');
+
+        navigation.navigate('List');
+      } else {
+        Alert.alert('Error', 'Same name is already used for another item.');
+      }
     } catch (error) {
-      // If the file does not exist, we'll create it later
-      console.log('File not found, will create a new one.');
+      console.error('Error saving data:', error);
+      Alert.alert('Error', 'An error occurred while saving the data.' + error);
     }
+  };
 
-    if (!existingData.some(item => item.name === name)) {
-      const newEntry = {
-        name,
-        description,
-        image: `data:image/png;base64,${imageBase64}`,
-        t_image: `data:image/png;base64,${thumbnailBase64}`,
-        category,
-        liked: 0
-      };
-
-      existingData.push(newEntry);
-
-      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(existingData, null, 2));
-
-      Alert.alert('Success', 'Data saved successfully.');
-      setName('');
-      setDescription('');
-      setCategory('B');
-      setImageBase64('');
-      setThumbnailBase64('');
-
-      navigation.navigate('List');
-    } else {
-      Alert.alert('Error', 'Same name is already used for another item.');
-    }
-  } catch (error) {
-    console.error('Error saving data:', error);
-    Alert.alert('Error', 'An error occurred while saving the data.' + error);
-  }
-};
-
-
-
+  const showCustomAlert = (title, message, onConfirm) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setOnConfirmAction(() => onConfirm);
+    setAlertVisible(true);
+  };
 
   return (
     <ImageBackground
@@ -141,12 +187,7 @@ const UploadPage = ({ navigation }) => {
         <RNPickerSelect
           placeholder={{ label: 'Select a category', value: null, color: '#9EA0A4' }}
           onValueChange={(value) => setCategory(value)}
-          items={[
-            { label: 'Bengali', value: 'B' },
-            { label: 'Hindi', value: 'H' },
-            { label: 'English', value: 'E' },
-            { label: 'Others', value: 'O' },
-          ]}
+          items={categories}
           style={pickerSelectStyles}
           value={category}
         />
@@ -163,9 +204,17 @@ const UploadPage = ({ navigation }) => {
           style={[styles.input, { backgroundColor: 'white' }]} 
         />
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.iconButton} onPress={pickImage}>
+           <TouchableOpacity
+            style={styles.iconButton}
+            onPress={pickImageFromLibrary}>
             <MaterialIcons name="add-photo-alternate" size={24} color="white" />
-            <Text style={styles.buttonText}>Pick an Image</Text>
+            <Text style={styles.buttonText}>Photos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={captureImageWithCamera}>
+            <MaterialIcons name="camera-alt" size={24} color="white" />
+            <Text style={styles.buttonText}>Camera</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.iconButton, (!imageBase64 || !thumbnailBase64 || !name || !description || !category) && styles.disabledButton]}
@@ -210,6 +259,15 @@ const UploadPage = ({ navigation }) => {
           </View>
         </Modal>
       </View>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onConfirm={onConfirmAction}
+        onCancel={() => setAlertVisible(false)}
+        showCancelButton={false}
+      />
     </ImageBackground>
   );
 };
@@ -222,14 +280,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-  },
-  space: {
-    height: 20,
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    color: 'black',
   },
   input: {
     height: 40,
