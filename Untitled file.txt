@@ -11,8 +11,7 @@ https://docs.page/invertase/react-native-google-mobile-ads/displaying-ads#banner
     }
 
 	
-npx create-expo-app --template
-npm i react-native-google-mobile-ads
+
 
 code .
 
@@ -36,3 +35,45 @@ npm install -g eas-cli
 eas login (macontouch/Rw1kth##)
 eas build --profile development --platform android 
 npx expo start --dev-client
+
+
+
+"versionCode": 1,
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.MANAGE_DOCUMENTS"
+      ],
+      "minSdkVersion": 21,
+      "targetSdkVersion": 33,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.macontouch.sargam"
+    },
+
+
+
+
+npx create-expo-app --template
+npm i react-native-google-mobile-ads
+
+
+ npm install @react-navigation/native
+ npm install @react-navigation/stack 
+ npm install @react-native-async-storage/async-storage
+ npm install expo-file-system 
+ npm install react-native-vector-icons
+ npm install react-native-gesture-handler 
+ npm install npx expo install react-native-reanimated@~3.16.7
+ npm install expo-sharing 
+ npm install expo-file-system
+ npm install expo-media-library
+ npm install react-native-picker-select
+ npm install react-native-popup-menu
+ npm install expo-image-manipulator
+ npm install expo-image-picker     
+
+
